@@ -79,6 +79,9 @@ namespace XrmToolBox___CRM_Record_Counter
 
         private void loadEntities()
         {
+            string filter = tscmbFilter.Text;
+            toolStripTextBox1.Enabled = false;
+
             WorkAsync(new WorkAsyncInfo
             {
                 Message = "Retrieving Entities...",
@@ -86,10 +89,8 @@ namespace XrmToolBox___CRM_Record_Counter
                 {
                     #region Reset Variables
 
-                    string filter = tscmbFilter.Text;
                     MetadataFilterExpression entityFilter = new MetadataFilterExpression(LogicalOperator.And);
                     dtEntities = new DataTable();
-                    toolStripTextBox1.Enabled = false;
 
                     #endregion Reset Variables
 
@@ -111,7 +112,7 @@ namespace XrmToolBox___CRM_Record_Counter
                         default:
                             MessageBox.Show("Error: Entities Drop Down was changed, please restart the tool and try again.");
                             return;
-                    }                
+                    }
 
                     #region Entity Metadata Request
 
@@ -179,10 +180,10 @@ namespace XrmToolBox___CRM_Record_Counter
 
         #endregion Load Entities
 
-        #region Process Get Counts
-
         private void ProcessGetCounts()
         {
+            toolStripTextBox1.Enabled = false;
+
             WorkAsync(new WorkAsyncInfo
             {
                 Message = "Retrieving Counts...",
@@ -190,7 +191,6 @@ namespace XrmToolBox___CRM_Record_Counter
                 {
                     #region Reset Variables
 
-                    toolStripTextBox1.Enabled = false;
                     Dictionary<int, string> selectedEntities = new Dictionary<int, string>();
                     dataGridView1.EndEdit();
                     DataGridViewRowCollection rows = null;
@@ -208,66 +208,36 @@ namespace XrmToolBox___CRM_Record_Counter
                         {
                             if ((System.Boolean)cell.Value != null && (System.Boolean)cell.Value == true)
                             {
-                                //selectedEntities.Add(rowCount, row.Cells[1].Value.ToString());
                                 #region Get Record Count
+
                                 try
                                 {
-                                    QueryExpression query = new QueryExpression(row.Cells[1].Value.ToString());
-                                    query.PageInfo = new PagingInfo();
-                                    query.PageInfo.PageNumber = 1;
-                                    query.PageInfo.PagingCookie = null;
-                                    query.PageInfo.Count = 5000;
-                                    int recordCounter = 0;
-
-                                    while (true)
+                                    var entityName = row.Cells[1].Value.ToString();
+                                    var retrieveTotalRecordCountRequest = new RetrieveTotalRecordCountRequest
                                     {
-                                        EntityCollection results = Service.RetrieveMultiple(query);
+                                        EntityNames = new[] { entityName }
+                                    };
+                                    var retrieveTotalRecordCountResponse = ((RetrieveTotalRecordCountResponse)Service.Execute(retrieveTotalRecordCountRequest)).EntityRecordCountCollection.FirstOrDefault();
 
-                                        recordCounter += results.Entities.Count;
-                                        
-
-                                        // Check for more records, if it returns true.
-                                        if (results.MoreRecords)
-                                        {
-                                            // Increment the page number to retrieve the next page.
-                                            query.PageInfo.PageNumber++;
-                                            // Set the paging cookie to the paging cookie returned from current results.
-                                            query.PageInfo.PagingCookie = results.PagingCookie;
-                                        }
-                                        else
-                                        {
-                                            break;
-                                        }
-                                        worker.ReportProgress(0, $"Retrieving Counts...{Environment.NewLine}Entity: {row.Cells[1].Value.ToString()}{Environment.NewLine}{recordCounter.ToString("#,#", CultureInfo.InvariantCulture)} Records");
-                                    }
-
-                                    //this.Invoke((MethodInvoker)delegate ()
-                                    //{
-                                        row.Cells[3].Value = recordCounter;
-                                    //});
+                                    row.Cells[3].Value = retrieveTotalRecordCountResponse.Value;
                                 }
                                 catch (Exception)
                                 {
-                                    //this.Invoke((MethodInvoker)delegate ()
-                                    //{
-                                        row.Cells[3].Value = -1;
-                                    //});
-                                    //throw;
-                                }
-                                
+                                    row.Cells[3].Value = -1;
 
-                                //return recordCounter;
+                                }
 
                                 #endregion Get Record Count
                             }
                         }
                         rowCount++;
                     }
+
+                    #endregion Get Counts
+
                     //worker.ReportProgress(0, string.Format("Total Entities Selected: {0}", selectedEntities.Count));
 
                     args.Result = true;
-
-                    #endregion Get Counts
                 },
                 ProgressChanged = e =>
                 {
@@ -291,8 +261,6 @@ namespace XrmToolBox___CRM_Record_Counter
             });
         }
 
-        #endregion Process Get Counts
-        
         #region Other Buttons
 
         private void TsbClose_Click(object sender, System.EventArgs e)
